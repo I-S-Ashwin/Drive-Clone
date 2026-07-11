@@ -8,7 +8,7 @@
 </div>
 
 <div align="center">
-  <a href="https://drive-clone-two-teal.vercel.app" target="_blank"><strong>Live Demo 🚀</strong></a>
+  <a href="https://drive-clone-two-teal.vercel.app" target="_blank"><strong>Click Here</strong></a>
 </div>
 
 ## 📋 Table of Contents
