@@ -79,6 +79,7 @@ export const formatDateTime = (isoString: string | null | undefined) => {
   if (!isoString) return "—";
 
   const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return "—";
 
   // Get hours and adjust for 12-hour format
   let hours = date.getHours();
@@ -183,7 +184,15 @@ export const constructDownloadUrl = (bucketFileId: string) => {
 };
 
 // DASHBOARD UTILS
-export const getUsageSummary = (totalSpace: any) => {
+interface StorageUsage {
+  image: { size: number; latestDate: string };
+  document: { size: number; latestDate: string };
+  video: { size: number; latestDate: string };
+  audio: { size: number; latestDate: string };
+  other: { size: number; latestDate: string };
+}
+
+export const getUsageSummary = (totalSpace: StorageUsage) => {
   return [
     {
       title: "Documents",
@@ -203,7 +212,9 @@ export const getUsageSummary = (totalSpace: any) => {
       title: "Media",
       size: totalSpace.video.size + totalSpace.audio.size,
       latestDate:
-        totalSpace.video.latestDate > totalSpace.audio.latestDate
+        totalSpace.video.latestDate &&
+        (!totalSpace.audio.latestDate ||
+          totalSpace.video.latestDate > totalSpace.audio.latestDate)
           ? totalSpace.video.latestDate
           : totalSpace.audio.latestDate,
       icon: "/assets/icons/file-video-light.svg",

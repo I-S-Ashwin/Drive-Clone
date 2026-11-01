@@ -32,28 +32,32 @@ const OtpModal = ({
   const [isOpen, setIsOpen] = useState(true);
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const handleSubmit = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     setIsLoading(true);
 
-    console.log({ accountId, password });
+    setErrorMessage("");
 
     try {
       const sessionId = await verifySecret({ accountId, password });
 
-      console.log({ sessionId });
-
       if (sessionId) router.push("/");
-    } catch (error) {
-      console.log("Failed to verify OTP", error);
+    } catch {
+      setErrorMessage("That code is invalid or expired. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   };
 
   const handleResendOtp = async () => {
-    await sendEmailOTP({ email });
+    setErrorMessage("");
+    try {
+      await sendEmailOTP({ email });
+    } catch {
+      setErrorMessage("Unable to resend the code. Please try again.");
+    }
   };
 
   return (
@@ -87,6 +91,7 @@ const OtpModal = ({
             <InputOTPSlot index={5} className="shad-otp-slot" />
           </InputOTPGroup>
         </InputOTP>
+        {errorMessage && <p className="error-message">{errorMessage}</p>}
 
         <AlertDialogFooter>
           <div className="flex w-full flex-col gap-4">
@@ -94,6 +99,7 @@ const OtpModal = ({
               onClick={handleSubmit}
               className="shad-submit-btn h-12"
               type="button"
+              disabled={isLoading || password.length !== 6}
             >
               Submit
               {isLoading && (
@@ -111,6 +117,7 @@ const OtpModal = ({
               Didn&apos;t get a code?
               <Button
                 type="button"
+                disabled={isLoading}
                 variant="link"
                 className="pl-1 text-brand"
                 onClick={handleResendOtp}

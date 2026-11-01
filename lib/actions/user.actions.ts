@@ -109,7 +109,9 @@ export const getCurrentUser = async () => {
 
     return parseStringify(user.documents[0]);
   } catch (error) {
-    console.log(error);
+    if (error instanceof Error && error.message === "No session") return null;
+    console.error("Failed to get current user", error);
+    return null;
   }
 };
 
@@ -127,17 +129,12 @@ export const signOutUser = async () => {
 };
 
 export const signInUser = async ({ email }: { email: string }) => {
-  try {
-    const existingUser = await getUserByEmail(email);
+  const existingUser = await getUserByEmail(email);
 
-    // User exists, send OTP
-    if (existingUser) {
-      await sendEmailOTP({ email });
-      return parseStringify({ accountId: existingUser.accountId });
-    }
-
-    return parseStringify({ accountId: null, error: "User not found" });
-  } catch (error) {
-    handleError(error, "Failed to sign in user");
+  if (existingUser) {
+    await sendEmailOTP({ email });
+    return parseStringify({ accountId: existingUser.accountId });
   }
+
+  return parseStringify({ accountId: null, error: "No account was found for that email. Sign up first." });
 };

@@ -46,13 +46,15 @@ const MobileNavigation = ({
       />
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger>
+        <SheetTrigger asChild>
+          <button type="button" aria-label="Open navigation menu">
           <Image
             src="/assets/icons/menu.svg"
             alt="Search"
             width={30}
             height={30}
           />
+          </button>
         </SheetTrigger>
         <SheetContent className="shad-sheet h-screen px-3 dark:bg-dark-200">
           <SheetTitle>

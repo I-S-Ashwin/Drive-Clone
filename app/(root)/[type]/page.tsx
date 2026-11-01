@@ -3,14 +3,15 @@ import Sort from "@/components/Sort";
 import { getFiles } from "@/lib/actions/file.actions";
 import { Models } from "node-appwrite";
 import Card from "@/components/Card";
-import { getFileTypesParams } from "@/lib/utils";
+import { convertFileSize, getFileTypesParams } from "@/lib/utils";
 import EmptyState from "@/components/EmptyState";
 import PageTransition from "@/components/PageTransition";
 
 const Page = async ({ searchParams, params }: SearchParamProps) => {
   const type = ((await params)?.type as string) || "";
-  const searchText = ((await searchParams)?.query as string) || "";
-  const sort = ((await searchParams)?.sort as string) || "";
+  const resolvedSearchParams = await searchParams;
+  const searchText = (resolvedSearchParams?.query as string) || "";
+  const sort = (resolvedSearchParams?.sort as string) || "";
 
   const types = getFileTypesParams(type) as FileType[];
 
@@ -24,7 +25,7 @@ const Page = async ({ searchParams, params }: SearchParamProps) => {
 
           <div className="total-size-section">
             <p className="body-1">
-              Total: <span className="h5">0 MB</span>
+              Total: <span className="h5">{convertFileSize(files.documents.reduce((total: number, file: Models.Document) => total + file.size, 0))}</span>
             </p>
 
             <div className="sort-container">

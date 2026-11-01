@@ -22,7 +22,7 @@
 
 ## 🤖 Introduction
 
-A storage management and file sharing platform that lets users effortlessly upload, organize, and share files. Built with Next.js 15, Appwrite Node SDK, TailwindCSS, and framer-motion animations.
+A storage management and file sharing platform that lets users upload, organize, and share files. Built with Next.js 16, the Appwrite Node SDK, Tailwind CSS, and Framer Motion animations.
 
 ## ⚙️ Tech Stack
 
@@ -115,12 +115,10 @@ Define the following columns (attributes) inside each table. **Ensure exact capi
 ### 3. Collection Permissions (CRITICAL)
 In Appwrite, select each table, go to the **Settings** tab, and configure the permissions:
 
-* **`users` Table Settings**:
-  * Under **Permissions**, click **Add Role** -> Select **Any** (or **All Users**)
-  * Grant: **Read** permission. Save.
-* **`files` Table Settings**:
-  * Under **Permissions**, click **Add Role** -> Select **Any** (or **All Users**)
-  * Grant: **Read**, **Create**, **Update**, **Delete** permissions. Save.
+* **`users` and `files` Table Settings**:
+  * Keep document permissions private. Server actions use an Appwrite API key and enforce the signed-in account before reading or changing documents.
+
+Do not grant public or all-user access to either collection. The Appwrite API key must be configured as a server-only `NEXT_APPWRITE_KEY`; never expose it as a `NEXT_PUBLIC_` variable.
 
 ---
 

@@ -1,6 +1,6 @@
 "use server";
 
-import { createAdminClient, createSessionClient } from "@/lib/appwrite";
+import { createAdminClient } from "@/lib/appwrite";
 import { InputFile } from "node-appwrite/file";
 import { appwriteConfig } from "@/lib/appwrite/config";
 import { ID, Models, Query } from "node-appwrite";
@@ -19,6 +19,11 @@ export const uploadFile = async ({
   accountId,
   path,
 }: UploadFileProps) => {
+  const currentUser = await getCurrentUser();
+  if (!currentUser || currentUser.$id !== ownerId || currentUser.accountId !== accountId) {
+    throw new Error("You are not authorized to upload files for this account.");
+  }
+
   const { storage, databases } = await createAdminClient();
 
   try {
@@ -38,7 +43,7 @@ export const uploadFile = async ({
       size: bucketFile.sizeOriginal,
       owner: ownerId,
       accountId,
-      users: [],
+      users: [currentUser.email],
       bucketFileId: bucketFile.$id,
     };
 
@@ -70,7 +75,7 @@ const createQueries = (
 ) => {
   const queries = [
     Query.or([
-      Query.equal("owner", [currentUser.$id]),
+      Query.equal("accountId", [currentUser.accountId]),
       Query.contains("users", [currentUser.email]),
     ]),
   ];
@@ -96,12 +101,11 @@ export const getFiles = async ({
   sort = "$createdAt-desc",
   limit,
 }: GetFilesProps) => {
-  const { databases } = await createAdminClient();
-
   try {
     const currentUser = await getCurrentUser();
 
     if (!currentUser) throw new Error("User not found");
+    const { databases } = await createAdminClient();
 
     const queries = createQueries(currentUser, types, searchText, sort, limit);
 
@@ -111,7 +115,6 @@ export const getFiles = async ({
       queries,
     );
 
-    console.log({ files });
     return parseStringify(files);
   } catch (error) {
     handleError(error, "Failed to get files");
@@ -124,10 +127,24 @@ export const renameFile = async ({
   extension,
   path,
 }: RenameFileProps) => {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) throw new Error("You are not authorized to rename files.");
+
   const { databases } = await createAdminClient();
 
   try {
-    const newName = `${name}.${extension}`;
+    const existingFile = await databases.getDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.filesCollectionId,
+      fileId,
+    );
+    if (existingFile.accountId !== currentUser.accountId) {
+      throw new Error("You can only rename files you own.");
+    }
+
+    const trimmedName = name.trim();
+    if (!trimmedName) throw new Error("File name cannot be empty.");
+    const newName = extension ? `${trimmedName}.${extension}` : trimmedName;
     const updatedFile = await databases.updateDocument(
       appwriteConfig.databaseId,
       appwriteConfig.filesCollectionId,
@@ -149,15 +166,27 @@ export const updateFileUsers = async ({
   emails,
   path,
 }: UpdateFileUsersProps) => {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) throw new Error("You are not authorized to share files.");
+
   const { databases } = await createAdminClient();
 
   try {
+    const file = await databases.getDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.filesCollectionId,
+      fileId,
+    );
+    if (file.accountId !== currentUser.accountId) {
+      throw new Error("You can only share files you own.");
+    }
+
     const updatedFile = await databases.updateDocument(
       appwriteConfig.databaseId,
       appwriteConfig.filesCollectionId,
       fileId,
       {
-        users: emails,
+        users: [...new Set(emails.map((email) => email.trim().toLowerCase()).filter(Boolean))],
       },
     );
 
@@ -173,18 +202,28 @@ export const deleteFile = async ({
   bucketFileId,
   path,
 }: DeleteFileProps) => {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) throw new Error("You are not authorized to delete files.");
+
   const { databases, storage } = await createAdminClient();
 
   try {
-    const deletedFile = await databases.deleteDocument(
+    const file = await databases.getDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.filesCollectionId,
+      fileId,
+    );
+    if (file.accountId !== currentUser.accountId || file.bucketFileId !== bucketFileId) {
+      throw new Error("You can only delete files you own.");
+    }
+
+    await databases.deleteDocument(
       appwriteConfig.databaseId,
       appwriteConfig.filesCollectionId,
       fileId,
     );
 
-    if (deletedFile) {
-      await storage.deleteFile(appwriteConfig.bucketId, bucketFileId);
-    }
+    await storage.deleteFile(appwriteConfig.bucketId, bucketFileId);
 
     revalidatePath(path);
     return parseStringify({ status: "success" });
@@ -196,14 +235,20 @@ export const deleteFile = async ({
 // ============================== TOTAL FILE SPACE USED
 export async function getTotalSpaceUsed() {
   try {
-    const { databases } = await createSessionClient();
+    const { databases } = await createAdminClient();
     const currentUser = await getCurrentUser();
     if (!currentUser) throw new Error("User is not authenticated.");
 
     const files = await databases.listDocuments(
       appwriteConfig.databaseId,
       appwriteConfig.filesCollectionId,
-      [Query.equal("owner", [currentUser.$id])],
+      [
+        Query.or([
+          Query.equal("accountId", [currentUser.accountId]),
+          Query.contains("users", [currentUser.email]),
+        ]),
+        Query.limit(5000),
+      ],
     );
 
     const totalSpace = {
@@ -217,9 +262,13 @@ export async function getTotalSpaceUsed() {
     };
 
     files.documents.forEach((file) => {
-      const fileType = file.type as FileType;
-      totalSpace[fileType].size += file.size;
-      totalSpace.used += file.size;
+      const fileType = (file.type as FileType) in totalSpace
+        ? (file.type as FileType)
+        : "other";
+      if (file.accountId === currentUser.accountId) {
+        totalSpace[fileType].size += file.size;
+        totalSpace.used += file.size;
+      }
 
       if (
         !totalSpace[fileType].latestDate ||

@@ -14,7 +14,15 @@ const Card = ({ file }: { file: Models.Document }) => {
   return (
     <>
       <div
+        role="button"
+        tabIndex={0}
         onClick={() => setShowPreview(true)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            setShowPreview(true);
+          }
+        }}
         className="file-card"
       >
         <div className="flex justify-between">
@@ -39,7 +47,7 @@ const Card = ({ file }: { file: Models.Document }) => {
             className="body-2 text-light-100"
           />
           <p className="caption line-clamp-1 text-light-200">
-            By: {file.owner.fullName}
+            By: {file.owner?.fullName || "Shared with you"}
           </p>
         </div>
       </div>

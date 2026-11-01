@@ -13,6 +13,7 @@ import { useDebounce } from "use-debounce";
 const Search = () => {
   const [query, setQuery] = useState("");
   const searchParams = useSearchParams();
+  const searchParamsString = searchParams.toString();
   const searchQuery = searchParams.get("query") || "";
   const [results, setResults] = useState<Models.Document[]>([]);
   const [open, setOpen] = useState(false);
@@ -25,16 +26,24 @@ const Search = () => {
       if (debouncedQuery.length === 0) {
         setResults([]);
         setOpen(false);
-        return router.push(path.replace(searchParams.toString(), ""));
+        const params = new URLSearchParams(searchParamsString);
+        params.delete("query");
+        router.replace(params.size ? `${path}?${params.toString()}` : path);
+        return;
       }
 
-      const files = await getFiles({ types: [], searchText: debouncedQuery });
-      setResults(files.documents);
-      setOpen(true);
+      try {
+        const files = await getFiles({ types: [], searchText: debouncedQuery });
+        setResults(files?.documents || []);
+        setOpen(true);
+      } catch {
+        setResults([]);
+        setOpen(true);
+      }
     };
 
     fetchFiles();
-  }, [debouncedQuery]);
+  }, [debouncedQuery, path, router, searchParamsString]);
 
   useEffect(() => {
     if (!searchQuery) {
@@ -46,9 +55,8 @@ const Search = () => {
     setOpen(false);
     setResults([]);
 
-    router.push(
-      `/${file.type === "video" || file.type === "audio" ? "media" : file.type + "s"}?query=${query}`,
-    );
+    const target = file.type === "video" || file.type === "audio" ? "media" : file.type + "s";
+    router.push(`/${target}?query=${encodeURIComponent(query)}`);
   };
 
   return (

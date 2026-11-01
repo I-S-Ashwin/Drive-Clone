@@ -44,23 +44,31 @@ const FileUploader = ({ ownerId, accountId, className }: Props) => {
           });
         }
 
-        return uploadFile({ file, ownerId, accountId, path }).then(
-          (uploadedFile) => {
-            if (uploadedFile) {
-              setFiles((prevFiles) =>
-                prevFiles.filter((f) => f.name !== file.name),
-              );
-            }
-          },
-        );
+        try {
+          const uploadedFile = await uploadFile({ file, ownerId, accountId, path });
+          if (uploadedFile) {
+            setFiles((prevFiles) => prevFiles.filter((f) => f !== file));
+          }
+        } catch {
+          setFiles((prevFiles) => prevFiles.filter((f) => f !== file));
+          toast({
+            description: <p className="body-2 text-white">Could not upload <span className="font-semibold">{file.name}</span>. Please try again.</p>,
+            className: "error-toast",
+          });
+        }
       });
 
       await Promise.all(uploadPromises);
     },
-    [ownerId, accountId, path],
+    [ownerId, accountId, path, toast],
   );
 
-  const { getRootProps, getInputProps } = useDropzone({ onDrop });
+  const { getRootProps, getInputProps, open } = useDropzone({
+    onDrop,
+    noClick: true,
+    noKeyboard: true,
+    maxSize: MAX_FILE_SIZE,
+  });
 
   const handleRemoveFile = (
     e: React.MouseEvent<HTMLImageElement, MouseEvent>,
@@ -73,7 +81,7 @@ const FileUploader = ({ ownerId, accountId, className }: Props) => {
   return (
     <div {...getRootProps()} className="cursor-pointer">
       <input {...getInputProps()} />
-      <Button type="button" className={cn("uploader-button", className)}>
+        <Button type="button" onClick={open} className={cn("uploader-button", className)}>
         <Image
           src="/assets/icons/upload.svg"
           alt="upload"
